@@ -1,0 +1,166 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+public class CalculatorFrame extends JFrame implements ActionListener {
+
+    private JTextField textField;
+    private JButton[] buttons;
+    private String[] buttonLabels = {
+            "7", "8", "9", "/",
+            "4", "5", "6", "*",
+            "1", "2", "3", "-",
+            "0", ".", "=", "+"
+    };
+    private String input = "";
+
+    public CalculatorFrame() {
+        setTitle("Calculator");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(300, 300);
+        setLocationRelativeTo(null);
+
+        textField = new JTextField();
+        textField.setEditable(false);
+
+        JPanel buttonPanel = new JPanel(new GridLayout(4, 4));
+        buttons = new JButton[buttonLabels.length];
+
+        for (int i = 0; i < buttons.length; i++) {
+            buttons[i] = new JButton(buttonLabels[i]);
+            buttons[i].addActionListener(this);
+            buttonPanel.add(buttons[i]);
+        }
+
+        setLayout(new BorderLayout());
+        add(textField, BorderLayout.NORTH);
+        add(buttonPanel, BorderLayout.CENTER);
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        String actionCommand = e.getActionCommand();
+        if (actionCommand.equals("=")) {
+            calculateResult();
+        } else if (actionCommand.equals("C")) {
+            clearInput();
+        } else {
+            input += actionCommand;
+            textField.setText(input);
+        }
+    }
+
+    private void calculateResult() {
+        try {
+            double result = evaluateExpression(input);
+            textField.setText(Double.toString(result));
+            input = "";
+        } catch (ArithmeticException | NumberFormatException ex) {
+            textField.setText("Error");
+            input = "";
+        }
+    }
+
+    private double evaluateExpression(String expression) {
+        return new Object() {
+            int pos = -1, ch;
+
+            void nextChar() {
+                ch = (++pos < expression.length()) ? expression.charAt(pos) : -1;
+            }
+
+            boolean hasNextChar() {
+                return pos + 1 < expression.length();
+            }
+
+            boolean isDigit(char c) {
+                return Character.isDigit(c) || c == '.';
+            }
+
+            double parse() {
+                nextChar();
+                double x = parseExpression();
+                if (pos < expression.length()) {
+                    throw new NumberFormatException("Unexpected: " + (char) ch);
+                }
+                return x;
+            }
+
+            double parseExpression() {
+                double x = parseTerm();
+                for (; ; ) {
+                    if (ch == '+') {
+                        nextChar();
+                        x += parseTerm();
+                    } else if (ch == '-') {
+                        nextChar();
+                        x -= parseTerm();
+                    } else {
+                        return x;
+                    }
+                }
+            }
+
+            double parseTerm() {
+                double x = parseFactor();
+                for (; ; ) {
+                    if (ch == '*') {
+                        nextChar();
+                        x *= parseFactor();
+                    } else if (ch == '/') {
+                        nextChar();
+                        x /= parseFactor();
+                    } else {
+                        return x;
+                    }
+                }
+            }
+
+            double parseFactor() {
+                if (ch == '(') {
+                    nextChar();
+                    double x = parseExpression();
+                    if (ch != ')') {
+                        throw new NumberFormatException("Expected closing parenthesis ')'");
+                    }
+                    nextChar();
+                    return x;
+                }
+                if (ch == '+' || ch == '-') {
+                    nextChar();
+                    double x = parseFactor();
+                    return ch == '+' ? x : -x;
+                }
+                if (!isDigit((char) ch)) {
+                    throw new NumberFormatException("Unexpected: " + (char) ch);
+                }
+                StringBuilder sb = new StringBuilder();
+                while (isDigit((char) ch)) {
+                    sb.append((char) ch);
+                    nextChar();
+                }
+                if (ch == '.') {
+                    sb.append('.');
+                    while (hasNextChar() && isDigit((char) (ch = expression.charAt(pos)))) {
+                        sb.append((char) ch);
+                        nextChar();
+                    }
+                }
+                return Double.parseDouble(sb.toString());
+            }
+        }.parse();
+    }
+
+    private void clearInput() {
+        input = "";
+        textField.setText("");
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            CalculatorFrame calculatorFrame = new CalculatorFrame();
+            calculatorFrame.setVisible(true);
+        });
+    }
+}
